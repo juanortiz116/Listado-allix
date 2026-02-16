@@ -1,11 +1,16 @@
 import { useState, useMemo } from 'react';
-import { Search, Plus, Save, Trash2, Box } from 'lucide-react';
+import { Search, Plus, Save, Trash2, Box, PackagePlus, Edit } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { Item } from '../types';
+import { Item, Module } from '../types';
+import { ItemCreator } from './ItemCreator';
 
 export const Configurator = () => {
-    const { items, addModule, addRecipe } = useStore();
+    const { items, modules, recipes, addModule, updateModule, addRecipe, deleteRecipesByModule } = useStore();
     const [searchTerm, setSearchTerm] = useState('');
+    const [isItemCreatorOpen, setIsItemCreatorOpen] = useState(false);
+
+    // Edit Mode State
+    const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
     const [moduleName, setModuleName] = useState('');
     const [moduleCategory, setModuleCategory] = useState('Bajos');
     const [currentRecipe, setCurrentRecipe] = useState<{ item: Item; quantity: number }[]>([]);
@@ -35,32 +40,62 @@ export const Configurator = () => {
         }
     };
 
+    const loadModuleToEdit = (module: Module) => {
+        setEditingModuleId(module.id);
+        setModuleName(module.name);
+        setModuleCategory(module.category);
+
+        // Reconstruct recipe
+        const moduleRecipes = recipes.filter(r => r.module_id === module.id);
+        const reconstructed = moduleRecipes.map(r => {
+            const item = items.find(i => i.id === r.item_id);
+            return item ? { item, quantity: r.quantity } : null;
+        }).filter(Boolean) as { item: Item; quantity: number }[];
+
+        setCurrentRecipe(reconstructed);
+    };
+
+    const clearEditor = () => {
+        setEditingModuleId(null);
+        setModuleName('');
+        setModuleCategory('Bajos');
+        setCurrentRecipe([]);
+    };
+
     const handleSave = () => {
         if (!moduleName || currentRecipe.length === 0) return;
 
-        const newModuleId = crypto.randomUUID();
+        const idToUse = editingModuleId || crypto.randomUUID();
 
-        // Save Module
-        addModule({
-            id: newModuleId,
-            name: moduleName,
-            category: moduleCategory
-        });
+        if (editingModuleId) {
+            // UPDATE existing
+            updateModule({
+                id: idToUse,
+                name: moduleName,
+                category: moduleCategory
+            });
+            deleteRecipesByModule(idToUse);
+        } else {
+            // CREATE new
+            addModule({
+                id: idToUse,
+                name: moduleName,
+                category: moduleCategory
+            });
+        }
 
-        // Save Recipes
+        // Save Recipes (Always fresh insert after delete or for new)
         currentRecipe.forEach(line => {
             addRecipe({
                 id: crypto.randomUUID(),
-                module_id: newModuleId,
+                module_id: idToUse,
                 item_id: line.item.id,
                 quantity: line.quantity
             });
         });
 
-        // Reset
-        setModuleName('');
-        setCurrentRecipe([]);
-        alert('Módulo guardado correctamente');
+        clearEditor();
+        alert(editingModuleId ? 'Módulo actualizado' : 'Módulo creado');
     };
 
     return (
@@ -68,7 +103,16 @@ export const Configurator = () => {
             {/* LEFT: Items */}
             <div className="w-1/3 border-r border-border bg-surface flex flex-col">
                 <div className="p-4 border-b border-border">
-                    <h2 className="text-xl font-bold mb-4 text-accent">Componentes</h2>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-bold text-accent">Componentes</h2>
+                        <button
+                            onClick={() => setIsItemCreatorOpen(true)}
+                            className="p-2 bg-surface border border-border rounded hover:border-accent text-accent"
+                            title="Crear nuevo componente"
+                        >
+                            <PackagePlus className="w-5 h-5" />
+                        </button>
+                    </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -99,20 +143,52 @@ export const Configurator = () => {
                     <div>
                         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                             <Box className="text-accent" />
-                            Nuevo Módulo
+                            {editingModuleId ? 'Editar Módulo' : 'Nuevo Módulo'}
                         </h2>
-                        <p className="text-gray-400 text-sm">Define la receta de tu nuevo producto</p>
+                        <p className="text-gray-400 text-sm">
+                            {editingModuleId ? 'Modifica la receta existente' : 'Define la receta de tu nuevo producto'}
+                        </p>
                     </div>
-                    <button
-                        onClick={handleSave}
-                        disabled={!moduleName || currentRecipe.length === 0}
-                        className="bg-accent text-emerald-950 px-6 py-2 rounded-lg font-bold hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                        <Save className="w-4 h-4" /> Guardar Módulo
-                    </button>
+                    <div className="flex gap-2">
+                        {editingModuleId && (
+                            <button
+                                onClick={clearEditor}
+                                className="px-4 py-2 text-gray-400 hover:text-white"
+                            >
+                                Cancelar
+                            </button>
+                        )}
+                        <button
+                            onClick={handleSave}
+                            disabled={!moduleName || currentRecipe.length === 0}
+                            className="bg-accent text-emerald-950 px-6 py-2 rounded-lg font-bold hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            <Save className="w-4 h-4" /> {editingModuleId ? 'Actualizar' : 'Guardar'}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="p-6 flex-1 overflow-y-auto">
+                    {/* Module List for Quick Load */}
+                    {!editingModuleId && (
+                        <div className="mb-8 p-4 bg-surface rounded-lg border border-border">
+                            <h3 className="text-sm font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
+                                <Edit className="w-4 h-4" /> Editar existente
+                            </h3>
+                            <div className="flex gap-2 overflow-x-auto pb-2">
+                                {modules.map(m => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => loadModuleToEdit(m)}
+                                        className="px-3 py-1.5 bg-background border border-border rounded text-sm whitespace-nowrap hover:border-accent hover:text-accent transition-colors"
+                                    >
+                                        {m.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex gap-4 mb-8">
                         <div className="flex-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Módulo</label>
@@ -166,6 +242,10 @@ export const Configurator = () => {
                     </div>
                 </div>
             </div>
+
+            {isItemCreatorOpen && (
+                <ItemCreator onClose={() => setIsItemCreatorOpen(false)} />
+            )}
         </div>
     );
 };

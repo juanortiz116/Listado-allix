@@ -18,7 +18,10 @@ interface StoreState {
 
     // Admin / Configurator Actions
     addModule: (module: Module) => void;
+    updateModule: (module: Module) => void;
+    addItem: (item: Item) => void;
     addRecipe: (recipe: ModuleRecipe) => void;
+    deleteRecipesByModule: (moduleId: string) => void;
 
     // Selectors (Logic)
     getMaterialList: () => { item: Item; quantity: number; totalPrice: number }[];
@@ -81,9 +84,20 @@ export const useStore = create<StoreState>((set, get) => ({
         });
     },
 
+    // Admin Actions
     addModule: (module) => set((state) => ({ modules: [...state.modules, module] })),
 
+    updateModule: (module) => set((state) => ({
+        modules: state.modules.map(m => m.id === module.id ? module : m)
+    })),
+
+    addItem: (item) => set((state) => ({ items: [...state.items, item] })),
+
     addRecipe: (recipe) => set((state) => ({ recipes: [...state.recipes, recipe] })),
+
+    deleteRecipesByModule: (moduleId) => set((state) => ({
+        recipes: state.recipes.filter(r => r.module_id !== moduleId)
+    })),
 
     getMaterialList: () => {
         const state = get();
