@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Item, Module, ModuleRecipe } from '../types';
-import { loadData } from '../utils/csvLoader';
+import { supabase } from '../supabaseClient';
+// import { loadData } from '../utils/csvLoader'; // Removed CSV loader
 
 interface StoreState {
     items: Item[];
@@ -17,11 +18,11 @@ interface StoreState {
     updateBasket: (moduleId: string, quantity: number) => void;
 
     // Admin / Configurator Actions
-    addModule: (module: Module) => void;
-    updateModule: (module: Module) => void;
-    addItem: (item: Item) => void;
-    addRecipe: (recipe: ModuleRecipe) => void;
-    deleteRecipesByModule: (moduleId: string) => void;
+    addModule: (module: Module) => Promise<void>;
+    updateModule: (module: Module) => Promise<void>;
+    addItem: (item: Item) => Promise<void>;
+    addRecipe: (recipe: ModuleRecipe) => Promise<void>;
+    deleteRecipesByModule: (moduleId: string) => Promise<void>;
 
     // Selectors (Logic)
     getMaterialList: () => { item: Item; quantity: number; totalPrice: number }[];
@@ -40,15 +41,25 @@ export const useStore = create<StoreState>((set, get) => ({
         if (get().initialized) return;
         set({ isLoading: true });
         try {
-            const data = await loadData();
+            // Fetch all data in parallel
+            const [itemsRes, modulesRes, recipesRes] = await Promise.all([
+                supabase.from('items').select('*'),
+                supabase.from('modules').select('*'),
+                supabase.from('module_recipes').select('*')
+            ]);
+
+            if (itemsRes.error) throw itemsRes.error;
+            if (modulesRes.error) throw modulesRes.error;
+            if (recipesRes.error) throw recipesRes.error;
+
             set({
-                items: data.items,
-                modules: data.modules,
-                recipes: data.recipes,
+                items: itemsRes.data as Item[],
+                modules: modulesRes.data as Module[],
+                recipes: recipesRes.data as ModuleRecipe[],
                 initialized: true,
             });
         } catch (error) {
-            console.error("Failed to initialize store", error);
+            console.error("Failed to initialize store from Supabase", error);
         } finally {
             set({ isLoading: false });
         }
@@ -84,20 +95,55 @@ export const useStore = create<StoreState>((set, get) => ({
         });
     },
 
-    // Admin Actions
-    addModule: (module) => set((state) => ({ modules: [...state.modules, module] })),
+    // Admin Actions - Now async with Supabase
+    addModule: async (module) => {
+        const { error } = await supabase.from('modules').insert(module);
+        if (error) {
+            console.error("Error adding module:", error);
+            return;
+        }
+        set((state) => ({ modules: [...state.modules, module] }));
+    },
 
-    updateModule: (module) => set((state) => ({
-        modules: state.modules.map(m => m.id === module.id ? module : m)
-    })),
+    updateModule: async (module) => {
+        const { error } = await supabase.from('modules').update(module).eq('id', module.id);
+        if (error) {
+            console.error("Error updating module:", error);
+            return;
+        }
+        set((state) => ({
+            modules: state.modules.map(m => m.id === module.id ? module : m)
+        }));
+    },
 
-    addItem: (item) => set((state) => ({ items: [...state.items, item] })),
+    addItem: async (item) => {
+        const { error } = await supabase.from('items').insert(item);
+        if (error) {
+            console.error("Error adding item:", error);
+            return;
+        }
+        set((state) => ({ items: [...state.items, item] }));
+    },
 
-    addRecipe: (recipe) => set((state) => ({ recipes: [...state.recipes, recipe] })),
+    addRecipe: async (recipe) => {
+        const { error } = await supabase.from('module_recipes').insert(recipe);
+        if (error) {
+            console.error("Error adding recipe:", error);
+            return;
+        }
+        set((state) => ({ recipes: [...state.recipes, recipe] }));
+    },
 
-    deleteRecipesByModule: (moduleId) => set((state) => ({
-        recipes: state.recipes.filter(r => r.module_id !== moduleId)
-    })),
+    deleteRecipesByModule: async (moduleId) => {
+        const { error } = await supabase.from('module_recipes').delete().eq('module_id', moduleId);
+        if (error) {
+            console.error("Error deleting recipes:", error);
+            return;
+        }
+        set((state) => ({
+            recipes: state.recipes.filter(r => r.module_id !== moduleId)
+        }));
+    },
 
     getMaterialList: () => {
         const state = get();

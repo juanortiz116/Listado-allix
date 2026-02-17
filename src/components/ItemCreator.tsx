@@ -9,11 +9,11 @@ export const ItemCreator = ({ onClose }: { onClose: () => void }) => {
     const [price, setPrice] = useState('');
     const [category, setCategory] = useState('General');
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || !price) return;
 
-        addItem({
+        await addItem({
             id: crypto.randomUUID(),
             name,
             sku: sku || `GEN-${Math.floor(Math.random() * 10000)}`,

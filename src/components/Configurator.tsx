@@ -62,40 +62,46 @@ export const Configurator = () => {
         setCurrentRecipe([]);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!moduleName || currentRecipe.length === 0) return;
 
         const idToUse = editingModuleId || crypto.randomUUID();
 
-        if (editingModuleId) {
-            // UPDATE existing
-            updateModule({
-                id: idToUse,
-                name: moduleName,
-                category: moduleCategory
-            });
-            deleteRecipesByModule(idToUse);
-        } else {
-            // CREATE new
-            addModule({
-                id: idToUse,
-                name: moduleName,
-                category: moduleCategory
-            });
+        try {
+            if (editingModuleId) {
+                // UPDATE existing
+                await updateModule({
+                    id: idToUse,
+                    name: moduleName,
+                    category: moduleCategory
+                });
+                await deleteRecipesByModule(idToUse);
+            } else {
+                // CREATE new
+                await addModule({
+                    id: idToUse,
+                    name: moduleName,
+                    category: moduleCategory
+                });
+            }
+
+            // Save Recipes (Always fresh insert after delete or for new)
+            // Use Promise.all for parallel insertion
+            await Promise.all(currentRecipe.map(line =>
+                addRecipe({
+                    id: crypto.randomUUID(),
+                    module_id: idToUse,
+                    item_id: line.item.id,
+                    quantity: line.quantity
+                })
+            ));
+
+            clearEditor();
+            alert(editingModuleId ? 'Módulo actualizado' : 'Módulo creado');
+        } catch (error) {
+            console.error("Error saving module:", error);
+            alert("Hubo un error al guardar el módulo.");
         }
-
-        // Save Recipes (Always fresh insert after delete or for new)
-        currentRecipe.forEach(line => {
-            addRecipe({
-                id: crypto.randomUUID(),
-                module_id: idToUse,
-                item_id: line.item.id,
-                quantity: line.quantity
-            });
-        });
-
-        clearEditor();
-        alert(editingModuleId ? 'Módulo actualizado' : 'Módulo creado');
     };
 
     return (
