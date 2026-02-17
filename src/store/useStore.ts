@@ -40,17 +40,34 @@ export const useStore = create<StoreState>((set, get) => ({
     initialize: async () => {
         if (get().initialized) return;
         set({ isLoading: true });
+        console.log("Initializing Supabase Store...");
         try {
             // Fetch all data in parallel
+            console.log("Fetching data from Supabase...");
             const [itemsRes, modulesRes, recipesRes] = await Promise.all([
                 supabase.from('items').select('*'),
                 supabase.from('modules').select('*'),
                 supabase.from('module_recipes').select('*')
             ]);
 
-            if (itemsRes.error) throw itemsRes.error;
-            if (modulesRes.error) throw modulesRes.error;
-            if (recipesRes.error) throw recipesRes.error;
+            if (itemsRes.error) {
+                console.error("Error fetching items:", itemsRes.error);
+                throw itemsRes.error;
+            }
+            if (modulesRes.error) {
+                console.error("Error fetching modules:", modulesRes.error);
+                throw modulesRes.error;
+            }
+            if (recipesRes.error) {
+                console.error("Error fetching recipes:", recipesRes.error);
+                throw recipesRes.error;
+            }
+
+            console.log("Data fetched successfully:", {
+                items: itemsRes.data.length,
+                modules: modulesRes.data.length,
+                recipes: recipesRes.data.length
+            });
 
             set({
                 items: itemsRes.data as Item[],
