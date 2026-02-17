@@ -27,3 +27,15 @@ export interface ModuleRecipe {
     item_id: string;
     quantity: number;
 }
+
+export interface CatalogModel {
+    id: string;
+    name: string;
+    active: boolean;
+}
+
+export interface CatalogFinish {
+    id: string;
+    name: string;
+    active: boolean;
+}

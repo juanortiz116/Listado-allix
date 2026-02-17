@@ -129,9 +129,9 @@ export const Configurator = () => {
                                 value={useStore((s) => s.globalSettings.model)}
                                 onChange={(e) => useStore.getState().setGlobalSettings({ model: e.target.value })}
                             >
-                                <option value="Mallorca">Mallorca</option>
-                                <option value="Oslo">Oslo</option>
-                                <option value="Berlin">Berlin</option>
+                                {useStore((s) => s.catalogModels).map(m => (
+                                    <option key={m.id} value={m.name}>{m.name}</option>
+                                ))}
                             </select>
                         </div>
                         <div>
@@ -141,9 +141,9 @@ export const Configurator = () => {
                                 value={useStore((s) => s.globalSettings.finish)}
                                 onChange={(e) => useStore.getState().setGlobalSettings({ finish: e.target.value })}
                             >
-                                <option value="Blanco brillo">Blanco brillo</option>
-                                <option value="Roble">Roble</option>
-                                <option value="Gris Mate">Gris Mate</option>
+                                {useStore((s) => s.catalogFinishes).map(f => (
+                                    <option key={f.id} value={f.name}>{f.name}</option>
+                                ))}
                             </select>
                         </div>
                     </div>
