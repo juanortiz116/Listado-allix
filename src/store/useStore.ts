@@ -11,6 +11,13 @@ interface StoreState {
     isLoading: boolean;
     initialized: boolean;
 
+    // Global Catalog Settings (Smart Substitution)
+    globalSettings: {
+        model: string;
+        finish: string;
+    };
+    setGlobalSettings: (settings: Partial<{ model: string; finish: string }>) => void;
+
     // Actions
     initialize: () => Promise<void>;
     addToBasket: (moduleId: string, quantity?: number) => void;
@@ -25,7 +32,7 @@ interface StoreState {
     deleteRecipesByModule: (moduleId: string) => Promise<void>;
 
     // Selectors (Logic)
-    getMaterialList: () => { item: Item; quantity: number; totalPrice: number }[];
+    getMaterialList: () => { item: Item; quantity: number; totalPrice: number; originalItem?: Item }[];
     getTotalPrice: () => number;
 }
 
@@ -36,6 +43,15 @@ export const useStore = create<StoreState>((set, get) => ({
     basket: {},
     isLoading: false,
     initialized: false,
+
+    globalSettings: {
+        model: 'Mallorca', // Default
+        finish: 'Blanco brillo' // Default
+    },
+
+    setGlobalSettings: (settings) => set((state) => ({
+        globalSettings: { ...state.globalSettings, ...settings }
+    })),
 
     initialize: async () => {
         if (get().initialized) return;
@@ -164,6 +180,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     getMaterialList: () => {
         const state = get();
+        const { globalSettings, items } = state;
         const materialMap = new Map<string, number>(); // itemId -> quantity
 
         // Explode basket
@@ -175,17 +192,47 @@ export const useStore = create<StoreState>((set, get) => ({
             });
         });
 
-        // Aggregate
-        const result: { item: Item; quantity: number; totalPrice: number }[] = [];
+        // Aggregate & Substitute
+        const result: { item: Item; quantity: number; totalPrice: number; originalItem?: Item }[] = [];
+
         materialMap.forEach((qty, itemId) => {
-            const item = state.items.find((i) => i.id === itemId);
-            if (item) {
-                result.push({
-                    item,
-                    quantity: qty,
-                    totalPrice: item.price * qty,
-                });
+            const originalItem = items.find((i) => i.id === itemId);
+            if (!originalItem) return;
+
+            // SMART SUBSTITUTION LOGIC
+            // Only substitute if the item is a 'puerta', 'frente', 'regleta', 'zocalo', 'costado' (aesthetic parts)
+            // And if it has dimensions to match against.
+            let finalItem = originalItem;
+            const aestheticCategories = ['puerta', 'frente', 'regleta', 'zocalo', 'costado', 'accessory'];
+
+            // Check if item needs substitution
+            // Logic: If current item is NOT matching global settings, try to find one that does.
+            const isAesthetic = aestheticCategories.includes(originalItem.category.toLowerCase()) ||
+                (originalItem.model && originalItem.model !== 'Generic');
+
+            if (isAesthetic) {
+                // Find substitute
+                const substitute = items.find(i =>
+                    i.category === originalItem.category &&
+                    i.width === originalItem.width &&
+                    i.height === originalItem.height &&
+                    i.depth === originalItem.depth && // Check depth too? Usually yes.
+                    i.model === globalSettings.model &&
+                    i.finish === globalSettings.finish &&
+                    i.hand === originalItem.hand // Preserve hand (Left/Right)
+                );
+
+                if (substitute) {
+                    finalItem = substitute;
+                }
             }
+
+            result.push({
+                item: finalItem,
+                quantity: qty,
+                totalPrice: finalItem.price * qty,
+                originalItem: finalItem.id !== originalItem.id ? originalItem : undefined
+            });
         });
 
         return result.sort((a, b) => a.item.sku.localeCompare(b.item.sku));

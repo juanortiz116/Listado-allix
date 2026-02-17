@@ -9,6 +9,10 @@ export interface Item {
     height?: number;
     depth?: number;
     brand?: string;
+    // Smart Substitution Fields
+    model?: string;
+    finish?: string;
+    hand?: string; // 'Left' | 'Right' | 'None'
 }
 
 export interface Module {

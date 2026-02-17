@@ -119,6 +119,35 @@ export const Configurator = () => {
                             <PackagePlus className="w-5 h-5" />
                         </button>
                     </div>
+
+                    {/* Global Settings (Smart Substitution) */}
+                    <div className="mb-4 grid grid-cols-2 gap-2">
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-1">Modelo</label>
+                            <select
+                                className="w-full bg-background border border-border rounded text-xs p-1 text-white"
+                                value={useStore((s) => s.globalSettings.model)}
+                                onChange={(e) => useStore.getState().setGlobalSettings({ model: e.target.value })}
+                            >
+                                <option value="Mallorca">Mallorca</option>
+                                <option value="Oslo">Oslo</option>
+                                <option value="Berlin">Berlin</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-1">Acabado</label>
+                            <select
+                                className="w-full bg-background border border-border rounded text-xs p-1 text-white"
+                                value={useStore((s) => s.globalSettings.finish)}
+                                onChange={(e) => useStore.getState().setGlobalSettings({ finish: e.target.value })}
+                            >
+                                <option value="Blanco brillo">Blanco brillo</option>
+                                <option value="Roble">Roble</option>
+                                <option value="Gris Mate">Gris Mate</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
